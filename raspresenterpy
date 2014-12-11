@@ -1,0 +1,34 @@
+#! /usr/bin/python
+
+# source: http://stackoverflow.com/questions/6513311/pyqt-web-browser-focus-on-the-webpage-without-a-mouse-click
+
+import sys, os, time, re
+try:
+    from PyQt4.QtCore import *
+    from PyQt4.QtGui import *
+    from PyQt4.QtWebKit import *
+except ImportError:
+    print "You need to install PythonQt in order to run this."
+    sys.exit(1)
+
+TIMER = 30
+conf = "raspresenterpy.conf"
+
+SITES = []
+for line in open(conf).readlines():
+    if not re.search("^http", line):
+        continue
+    SITES.append(line.rstrip())
+
+app = QApplication(sys.argv)
+web = QWebView()
+web.loadFinished.connect(web.setFocus)
+web.showFullScreen()
+while True:
+    for site in SITES:
+        try:
+            web.load(QUrl(site))
+        except:
+            pass
+        time.sleep(TIMER)
+sys.exit(app.exec_())
