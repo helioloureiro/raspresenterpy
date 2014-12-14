@@ -31,6 +31,12 @@ except ImportError:
 
 TIMER = 30
 
+DEBUG = False
+
+def debug(msg):
+    if DEBUG:
+        sys.stdout.write("%s\n" % msg)
+
 class raspresenterpy(QDialog):
     def __init__(self):
         QDialog.__init__(self)
@@ -57,30 +63,30 @@ class raspresenterpy(QDialog):
         for line in conflines:
             if not re.search("^http", line):
                 continue
-            print "reading: %s" % line.rstrip()
+            debug("reading: %s" % line.rstrip())
             self.URLS.append(line.rstrip())
 
     def update(self):
-        print "Updating to: %s" % self.url
+        debug("Updating to: %s" % self.url)
         self.web.load(QUrl(self.url))
 
         
     def show(self):
-        print "Staring thread"
+        debug("Staring thread")
         self.th = QtBrowser(parent = self)
         self.th.start()
-        print "Connecting SIGNAL"
+        debug("Connecting SIGNAL")
         self.connect(self.th,
                      SIGNAL("update"),
                      self.update)
-        print "Starting app"
+        debug("Starting app")
         #self.app = QApplication(sys.argv)
         self.web = QWebView()
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
         QWebSettings.JavascriptEnabled = 1
         QWebSettings.PluginsEnabled = 1
-        print "Connecting to %s" % self.url
+        debug("Connecting to %s" % self.url)
         self.web.load(QUrl(self.url))
         #sys.exit(self.app.exec_())
 
@@ -88,7 +94,7 @@ class raspresenterpy(QDialog):
         
 class QtBrowser(QThread):
     def __init__(self, parent = None):
-        print "Starting QtBrowser"
+        debug("Starting QtBrowser")
         QThread.__init__(self, parent = None)
         self.p = parent
 
@@ -96,7 +102,7 @@ class QtBrowser(QThread):
     def run(self):
         while True:
             for url in self.p.URLS:
-                print "Threading updating url to: %s" % url
+                debug("Threading updating url to: %s" % url)
                 self.p.url = url
                 self.emit(SIGNAL("update"))
                 #self.th.web.load(QUrl(url))
@@ -109,4 +115,5 @@ if __name__ == '__main__':
         win.show()
         sys.exit(app.exec_())
     except KeyboardInterrupt:
+        win.destroy()
         sys.exit(0)
