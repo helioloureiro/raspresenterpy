@@ -23,6 +23,7 @@ int main(int argc, char **argv){
 """
 
 import sys, os, time, re
+import urllib
 try:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
@@ -70,6 +71,8 @@ class raspresenterpy(QDialog):
 
     def update(self):
         debug("Updating to: %s" % self.url)
+        # freeing memory
+        QWebSettings.clearMemoryCaches()
         self.web.load(QUrl(self.url))
 
         
@@ -86,8 +89,13 @@ class raspresenterpy(QDialog):
         self.web = QWebView()
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
+        # Forcing HTML5 settings to be enabled.
         QWebSettings.JavascriptEnabled = 1
         QWebSettings.PluginsEnabled = 1
+        QWebSettings.OfflineStorageDatabaseEnabled = 1
+        QWebSettings.OfflineWebApplicationCacheEnabled = 1
+        QWebSettings.AcceleratedCompositingEnabled = 1
+        QWebSettings.TiledBackingStoreEnabled = 1
         debug("Connecting to %s" % self.url)
         self.web.load(QUrl(self.url))
         #sys.exit(self.app.exec_())
@@ -104,6 +112,11 @@ class QtBrowser(QThread):
     def run(self):
         while True:
             for url in self.p.URLS:
+                # Let's check first if it is available
+                w = urllib.urlopen(url)
+                if (w.getcode() != 200):
+                    debug("Link %s shows error: %d" % (url,w.getcode()))
+                    continue
                 debug("Threading updating url to: %s" % url)
                 self.p.url = url
                 self.emit(SIGNAL("update"))
