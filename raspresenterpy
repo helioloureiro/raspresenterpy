@@ -32,9 +32,9 @@ except ImportError:
     print "You need to install PythonQt in order to run this."
     sys.exit(1)
 
-TIMER = 30
+TIMER = 60
 
-DEBUG = False
+DEBUG = True
 
 def debug(msg):
     if DEBUG:
@@ -73,6 +73,10 @@ class raspresenterpy(QDialog):
         debug("Updating to: %s" % self.url)
         # freeing memory
         QWebSettings.clearMemoryCaches()
+        QWebSettings.OfflineStorageDatabaseEnabled = 1
+        QWebSettings.OfflineWebApplicationCacheEnabled = 1
+        QWebSettings.AcceleratedCompositingEnabled = 1
+        QWebSettings.TiledBackingStoreEnabled = 1
         self.web.load(QUrl(self.url))
 
         
@@ -90,17 +94,26 @@ class raspresenterpy(QDialog):
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
         # Forcing HTML5 settings to be enabled.
+        """
+        QWebView *webView = new QWebView();
+        webView->settings()->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
+        webView->page()->settings()->setAttribute(QWebSettings::JavascriptEnabled, true);
+        webView->page()->settings()->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, true);
+        webView->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
+        webView->settings()->setUserStyleSheetUrl(QUrl("qrc:/path-your-css-file-in-resource-file.css"));
+        """
         QWebSettings.JavascriptEnabled = 1
         QWebSettings.PluginsEnabled = 1
         QWebSettings.OfflineStorageDatabaseEnabled = 1
         QWebSettings.OfflineWebApplicationCacheEnabled = 1
         QWebSettings.AcceleratedCompositingEnabled = 1
         QWebSettings.TiledBackingStoreEnabled = 1
+        self.web.settings().setAttribute(QWebSettings.PluginsEnabled, True)
+        self.web.page().settings().setAttribute(QWebSettings.OfflineWebApplicationCacheEnabled, True)
+        self.web.page().settings().setAttribute(QWebSettings.JavascriptEnabled, True)
+        self.web.page().setLinkDelegationPolicy(QWebPage.DelegateAllLinks)
         debug("Connecting to %s" % self.url)
-        self.web.load(QUrl(self.url))
-        #sys.exit(self.app.exec_())
-
-        
+        self.web.load(QUrl(self.url))        
         
 class QtBrowser(QThread):
     def __init__(self, parent = None):
@@ -113,7 +126,11 @@ class QtBrowser(QThread):
         while True:
             for url in self.p.URLS:
                 # Let's check first if it is available
-                w = urllib.urlopen(url)
+                try:
+                    w = urllib.urlopen(url)
+                except IOError:
+                    debug("Link %s has I/O error" % url)
+                    continue
                 if (w.getcode() != 200):
                     debug("Link %s shows error: %d" % (url,w.getcode()))
                     continue
@@ -130,5 +147,6 @@ if __name__ == '__main__':
         win.show()
         sys.exit(app.exec_())
     except KeyboardInterrupt:
-        win.destroy()
+        debug("Captured a KeyboardInterrupt")
+        #win.destroy()
         sys.exit(0)
