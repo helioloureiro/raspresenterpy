@@ -14,3 +14,12 @@ And using WebKit.
 Thanks for Gustavo Noronha for challenge me to create
 that.
 
+Note
+====
+
+I found a bug in raspberrypi implementation of libqt
+and webkit on Wheezy version (raspbian).  It was 
+linked against old libwebkitgtk-1 instead
+libwebkitgtk-3.
+
+On recently released Jessie, it is working just fine.
