@@ -1,4 +1,4 @@
-#! /usr/bin/python
+#! /usr/bin/python -u
 # -*- coding: utf-8 -*-
 
 
@@ -24,6 +24,8 @@ int main(int argc, char **argv){
 
 import sys, os, time, re
 import urllib
+import gc
+
 try:
     from PyQt4.QtCore import *
     from PyQt4.QtGui import *
@@ -46,12 +48,18 @@ class raspresenterpy(QDialog):
         self.URLS = []
         self.url = ''
         self.web = QWebView()
+        self.time_start = time.time()
+        self.keepalive = 0
+        self.pid = os.getpid()
 
         self.readconf()
         
         debug("Starting thread")
         self.th = QtBrowser(parent = self)
         self.th.start()
+
+        self.th_wdog = QtWatchdog(parent = self)
+        self.th_wdog.start()
 
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
@@ -86,16 +94,23 @@ class raspresenterpy(QDialog):
         QWebSettings.AcceleratedCompositingEnabled = 1
         QWebSettings.TiledBackingStoreEnabled = 1
         self.web.load(QUrl(self.url))
+        self.keepalive += 1
 
     def cleanupmemory(self):
         """
         Forcing to clean up memory to avoid OOM errors
         """
         debug("Forcing memory cleanup by QWebView() object recreation")
-        self.web.close()
+        self.web.destroy()
+        gc.collect()
         self.web = QWebView()
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
+        t_now = time.time()
+        if ( (self.time_start - t_now) > (2 * 60 * 60)):
+            debug("Reached maximum time (2 hours).  Restarting to save memory.")
+            self.destroy()
+            sys.exit(0)
 
 
         
@@ -127,7 +142,6 @@ class QtBrowser(QThread):
         QThread.__init__(self, parent = None)
         self.p = parent
 
-
     def run(self):
         while True:
             for url in self.p.URLS:
@@ -144,10 +158,31 @@ class QtBrowser(QThread):
                 self.p.url = url
                 self.emit(SIGNAL("update"))
                 self.sleep(TIMER)
-        self.p.cleanupmemory()
+            self.p.cleanupmemory()
+
+class QtWatchdog(QThread):
+    def __init__(self, parent = None):
+        debug("Starting QtWatchdog")
+        QThread.__init__(self, parent = None)
+        self.p = parent
+
+    def run(self):
+        counter = self.p.keepalive
+        while (True):
+            time.sleep(TIMER * 2) # wait twice the time
+            current_counter = self.p.keepalive
+
+            if (counter <= current_counter):
+                print "Detected some dead-lock.  Restarting..."
+                os.kill(self.p.pid, 9)
+            else:
+                counter = current_counter
 
 if __name__ == '__main__':
-    app = QApplication(sys.argv)
-    win = raspresenterpy()
-    win.show()
-    sys.exit(app.exec_())
+    while True:
+        # an extremely dumb keep-alive
+        app = QApplication(sys.argv)
+        win = raspresenterpy()
+        win.show()
+        sys.exit(app.exec_())
+        sleep(5)
