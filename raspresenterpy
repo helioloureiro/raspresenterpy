@@ -40,7 +40,7 @@ DEBUG = True
 
 def debug(msg):
     if DEBUG:
-        sys.stdout.write("%s\n" % msg)
+        sys.stdout.write("[%s] %s\n" % (time.ctime(time.time()), msg))
 
 class raspresenterpy(QDialog):
     def __init__(self):
@@ -55,7 +55,7 @@ class raspresenterpy(QDialog):
 
         self.readconf()
         
-        debug("Starting thread")
+        debug("== Starting threads ==")
         self.th = QtBrowser(parent = self)
         self.th.start()
 
@@ -96,6 +96,7 @@ class raspresenterpy(QDialog):
         QWebSettings.TiledBackingStoreEnabled = 1
         self.web.load(QUrl(self.url))
         self.keepalive += 1
+        debug("update(): keepalive=%d" % keepalive)
 
     def cleanupmemory(self):
         """
@@ -122,10 +123,13 @@ class raspresenterpy(QDialog):
 
         
     def show(self):
-        debug("Connecting SIGNAL")
+        debug("Connecting SIGNALs")
         self.connect(self.th,
                      SIGNAL("update"),
                      self.update)
+        self.connect(self.th,
+                     SIGNAL("cleanupmemory"),
+                     self.cleanupmemory)
         debug("Starting app")
         # Forcing HTML5 settings to be enabled.
         """
@@ -166,7 +170,8 @@ class QtBrowser(QThread):
                 self.emit(SIGNAL("update"))
                 self.sleep(TIMER)
             debug("Reached end of the list.  Calling clean up memory()")
-            self.p.cleanupmemory()
+            self.emit(SIGNAL("cleanupmemory"))
+            #self.p.cleanupmemory()
 
 class QtWatchdog(QThread):
     def __init__(self, parent = None):
@@ -179,6 +184,7 @@ class QtWatchdog(QThread):
         while (True):
             time.sleep(TIMER * 5) # wait 5x the time to decide something
             current_counter = self.p.keepalive
+            debug("QtWatchdog: counter=%d, current_counter=%d" %(counter, current_counter))
 
             if (counter >= current_counter):
                 debug("Detected some dead-lock (counter=%d, current_counter=%d).  Restarting..." % (counter, current_counter))
