@@ -44,6 +44,7 @@ def debug(msg):
 
 class raspresenterpy(QDialog):
     def __init__(self):
+        debug("Starting at %s" % time.ctime(time.time()))
         QDialog.__init__(self)
         self.URLS = []
         self.url = ''
@@ -101,11 +102,17 @@ class raspresenterpy(QDialog):
         Forcing to clean up memory to avoid OOM errors
         """
         debug("Forcing memory cleanup by QWebView() object recreation")
+        debug("cleanupmemory(): self.web.destroy()")
         self.web.destroy()
+        debug("cleanupmemory(): calling GC")
         gc.collect()
+        debug("cleanupmemory(): create new web object")
         self.web = QWebView()
+        debug("cleanupmemory(): load web and connect")
         self.web.loadFinished.connect(self.web.setFocus)
+        debug("cleanupmemory(): make it full screen")
         self.web.showFullScreen()
+        debug("cleanupmemory(): checking time")
         t_now = time.time()
         if ( (self.time_start - t_now) > (2 * 60 * 60)):
             debug("Reached maximum time (2 hours).  Restarting to save memory.")
@@ -158,6 +165,7 @@ class QtBrowser(QThread):
                 self.p.url = url
                 self.emit(SIGNAL("update"))
                 self.sleep(TIMER)
+            debug("Reached end of the list.  Calling clean up memory()")
             self.p.cleanupmemory()
 
 class QtWatchdog(QThread):
@@ -169,11 +177,11 @@ class QtWatchdog(QThread):
     def run(self):
         counter = self.p.keepalive
         while (True):
-            time.sleep(TIMER * 2) # wait twice the time
+            time.sleep(TIMER * 5) # wait 5x the time to decide something
             current_counter = self.p.keepalive
 
-            if (counter <= current_counter):
-                print "Detected some dead-lock.  Restarting..."
+            if (counter >= current_counter):
+                debug("Detected some dead-lock (counter=%d, current_counter=%d).  Restarting..." % (counter, current_counter))
                 os.kill(self.p.pid, 9)
             else:
                 counter = current_counter
