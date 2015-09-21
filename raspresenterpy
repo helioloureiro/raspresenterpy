@@ -94,9 +94,10 @@ class raspresenterpy(QDialog):
         QWebSettings.OfflineWebApplicationCacheEnabled = 1
         QWebSettings.AcceleratedCompositingEnabled = 1
         QWebSettings.TiledBackingStoreEnabled = 1
+        self.web.stop()
         self.web.load(QUrl(self.url))
         self.keepalive += 1
-        debug("update(): keepalive=%d" % keepalive)
+        debug("update(): keepalive=%d" % self.keepalive)
 
     def cleanupmemory(self):
         """
@@ -115,13 +116,15 @@ class raspresenterpy(QDialog):
         self.web.showFullScreen()
         debug("cleanupmemory(): checking time")
         t_now = time.time()
-        if ( (self.time_start - t_now) > (2 * 60 * 60)):
+        t_delta = t_now - self.time_start
+        debug("Time started: %d\nTime now: %d\nTime delta:%d" % \
+              (t_now, self.time_start, t_delta) )
+        if ( t_delta > (2 * 60 * 60)):
             debug("Reached maximum time (2 hours).  Restarting to save memory.")
             self.destroy()
             sys.exit(0)
 
 
-        
     def show(self):
         debug("Connecting SIGNALs")
         self.connect(self.th,
