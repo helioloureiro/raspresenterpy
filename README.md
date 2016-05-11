@@ -23,3 +23,12 @@ linked against old libwebkitgtk-1 instead
 libwebkitgtk-3.
 
 On recently released Jessie, it is working just fine.
+
+Limitations
+===========
+
+There is a memory leak in some place that I couldn't
+find and get rid off.  So... sadly I need to "kill"
+the presenter from times to times.  I'm including a
+shell script to bring it up again but... yap, far 
+from good.
