@@ -1,14 +1,10 @@
 #! /usr/bin/python -u
 # -*- coding: utf-8 -*-
-
-
-# source: http://stackoverflow.com/questions/6513311/pyqt-web-browser-focus-on-the-webpage-without-a-mouse-click
-
 """
 #include <QtGui>
 #include <QtWebKit>
- 
- 
+
+
 int main(int argc, char **argv){
   QApplication app(argc, argv);
   QWebView wv;
@@ -20,11 +16,18 @@ int main(int argc, char **argv){
   wv.show();
   return app.exec();
 }
+
+
+source:
+http://stackoverflow.com/questions/6513311/pyqt-web-browser-focus-on-the-webpage-without-a-mouse-click
 """
 
-import sys, os, time, re
-import urllib
 import gc
+import os
+import re
+import sys
+import time
+import urllib
 
 try:
     from PyQt5 import QtCore
@@ -36,12 +39,13 @@ except ImportError:
     sys.exit(1)
 
 TIMER = 60
-
 DEBUG = True
+
 
 def debug(msg):
     if DEBUG:
         sys.stdout.write("[%s] %s\n" % (time.ctime(time.time()), msg))
+
 
 class raspresenterpy(QtWidgets.QDialog):
     def __init__(self):
@@ -55,18 +59,19 @@ class raspresenterpy(QtWidgets.QDialog):
         self.pid = os.getpid()
 
         self.readconf()
-        
+
         debug("== Starting threads ==")
-        self.th = QtBrowser(parent = self)
+        self.th = QtBrowser(parent=self)
         self.th.start()
 
-        self.th_wdog = QtWatchdog(parent = self)
+        self.th_wdog = QtWatchdog(parent=self)
         self.th_wdog.start()
 
         self.web.loadFinished.connect(self.web.setFocus)
         self.web.showFullScreen()
-        
-    def usage(self, errno = 1):
+
+    @staticmethod
+    def usage(errno=1):
         print("Use: %s <raspresenterpy.conf>" % sys.argv[0])
         sys.exit(errno)
 
@@ -120,17 +125,14 @@ class raspresenterpy(QtWidgets.QDialog):
         debug("cleanupmemory(): checking time")
         t_now = time.time()
         t_delta = t_now - self.time_start
-        debug("Time started: %d\nTime now: %d\nTime delta:%d" % \
-              (t_now, self.time_start, t_delta) )
-        if ( t_delta > (2 * 60 * 60)):
+        debug("Time started: %d\nTime now: %d\nTime delta:%d" %
+              (t_now, self.time_start, t_delta))
+        if t_delta > (2 * 60 * 60):
             debug("Reached maximum time (2 hours).  Restarting to save memory.")
             self.destroy()
             sys.exit(0)
 
-
     def show(self):
-        debug("Connecting SIGNALs")
-
         debug("Starting app")
         # Forcing HTML5 settings to be enabled.
         """
@@ -147,11 +149,13 @@ class raspresenterpy(QtWidgets.QDialog):
         QtWebKit.QWebSettings.OfflineWebApplicationCacheEnabled = 1
         QtWebKit.QWebSettings.AcceleratedCompositingEnabled = 1
         QtWebKit.QWebSettings.TiledBackingStoreEnabled = 1
-        
+
+
 class QtBrowser(QtCore.QThread):
     cleanupmemory = QtCore.pyqtSignal()
     update = QtCore.pyqtSignal('QString')
-    def __init__(self, parent = None):
+
+    def __init__(self, parent=None):
         super(QtBrowser, self).__init__(parent)
         debug("Starting QtBrowser")
         self.cleanupmemory.connect(parent.cleanupmemory)
@@ -171,8 +175,8 @@ class QtBrowser(QtCore.QThread):
                 except Exception as e:
                     debug("Error: {}".format(e))
                     continue
-                if (w.getcode() != 200):
-                    debug("Link %s shows error: %d" % (url,w.getcode()))
+                if w.getcode() != 200:
+                    debug("Link %s shows error: %d" % (url, w.getcode()))
                     continue
                 debug("Threading updating url to: %s" % url)
                 self.p.url = url
@@ -181,24 +185,27 @@ class QtBrowser(QtCore.QThread):
             debug("Reached end of the list.  Calling clean up memory()")
             self.cleanupmemory.emit()
 
+
 class QtWatchdog(QtCore.QThread):
-    def __init__(self, parent = None):
+    def __init__(self, parent=None):
         debug("Starting QtWatchdog")
         super(QtWatchdog, self).__init__(parent)
         self.p = parent
 
     def run(self):
         counter = self.p.keepalive
-        while (True):
-            time.sleep(TIMER * 5) # wait 5x the time to decide something
+        while True:
+            time.sleep(TIMER * 5)  # wait 5x the time to decide something
             current_counter = self.p.keepalive
-            debug("QtWatchdog: counter=%d, current_counter=%d" %(counter, current_counter))
+            debug("QtWatchdog: counter=%d, current_counter=%d" % (counter, current_counter))
 
-            if (counter >= current_counter):
-                debug("Detected some dead-lock (counter=%d, current_counter=%d).  Restarting..." % (counter, current_counter))
+            if counter >= current_counter:
+                debug("Detected some dead-lock (counter=%d, current_counter=%d).  Restarting..." %
+                      (counter, current_counter))
                 os.kill(self.p.pid, 9)
             else:
                 counter = current_counter
+
 
 if __name__ == '__main__':
     while True:
@@ -207,4 +214,3 @@ if __name__ == '__main__':
         win = raspresenterpy()
         win.show()
         sys.exit(app.exec_())
-        sleep(5)
