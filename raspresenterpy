@@ -27,11 +27,12 @@ import urllib
 import gc
 
 try:
-    from PyQt4.QtCore import *
-    from PyQt4.QtGui import *
-    from PyQt4.QtWebKit import *
+    from PyQt5 import QtCore
+    from PyQt5 import QtWebKit
+    from PyQt5 import QtWebKitWidgets
+    from PyQt5 import QtWidgets
 except ImportError:
-    print "You need to install PythonQt in order to run this."
+    print("You need to install PythonQt in order to run this.")
     sys.exit(1)
 
 TIMER = 60
@@ -42,13 +43,13 @@ def debug(msg):
     if DEBUG:
         sys.stdout.write("[%s] %s\n" % (time.ctime(time.time()), msg))
 
-class raspresenterpy(QDialog):
+class raspresenterpy(QtWidgets.QDialog):
     def __init__(self):
         debug("Starting at %s" % time.ctime(time.time()))
-        QDialog.__init__(self)
+        QtWidgets.QDialog.__init__(self)
         self.URLS = []
         self.url = ''
-        self.web = QWebView()
+        self.web = QtWebKitWidgets.QWebView()
         self.time_start = time.time()
         self.keepalive = 0
         self.pid = os.getpid()
@@ -66,7 +67,7 @@ class raspresenterpy(QDialog):
         self.web.showFullScreen()
         
     def usage(self, errno = 1):
-        print "Use: %s <raspresenterpy.conf>" % sys.argv[0]
+        print("Use: %s <raspresenterpy.conf>" % sys.argv[0])
         sys.exit(errno)
 
     def readconf(self):
@@ -74,10 +75,10 @@ class raspresenterpy(QDialog):
             conf = sys.argv[1]
             conflines = open(conf).readlines()
         except IOError as e:
-            print e.strerror
+            print(e.strerror)
             self.usage(e.errno)
         except IndexError as e:
-            print e
+            print(e)
             self.usage()
 
         for line in conflines:
@@ -86,16 +87,18 @@ class raspresenterpy(QDialog):
             debug("reading: %s" % line.rstrip())
             self.URLS.append(line.rstrip())
 
-    def update(self):
+    def update(self, url):
+        self.url = url
         debug("Updating to: %s" % self.url)
         # freeing memory
-        QWebSettings.clearMemoryCaches()
-        QWebSettings.OfflineStorageDatabaseEnabled = 1
-        QWebSettings.OfflineWebApplicationCacheEnabled = 1
-        QWebSettings.AcceleratedCompositingEnabled = 1
-        QWebSettings.TiledBackingStoreEnabled = 1
+        QtWebKit.QWebSettings.clearMemoryCaches()
+        QtWebKit.QWebSettings.OfflineStorageDatabaseEnabled = 1
+        QtWebKit.QWebSettings.OfflineWebApplicationCacheEnabled = 1
+        QtWebKit.QWebSettings.AcceleratedCompositingEnabled = 1
+        QtWebKit.QWebSettings.TiledBackingStoreEnabled = 1
         self.web.stop()
-        self.web.load(QUrl(self.url))
+        debug("loading {}".format(self.url))
+        self.web.load(QtCore.QUrl(self.url))
         self.keepalive += 1
         debug("update(): keepalive=%d" % self.keepalive)
 
@@ -103,13 +106,13 @@ class raspresenterpy(QDialog):
         """
         Forcing to clean up memory to avoid OOM errors
         """
-        debug("Forcing memory cleanup by QWebView() object recreation")
+        debug("Forcing memory cleanup by QtWebKitWidgets.QWebView() object recreation")
         debug("cleanupmemory(): self.web.destroy()")
         self.web.destroy()
         debug("cleanupmemory(): calling GC")
         gc.collect()
         debug("cleanupmemory(): create new web object")
-        self.web = QWebView()
+        self.web = QtWebKitWidgets.QWebView()
         debug("cleanupmemory(): load web and connect")
         self.web.loadFinished.connect(self.web.setFocus)
         debug("cleanupmemory(): make it full screen")
@@ -127,33 +130,33 @@ class raspresenterpy(QDialog):
 
     def show(self):
         debug("Connecting SIGNALs")
-        self.connect(self.th,
-                     SIGNAL("update"),
-                     self.update)
-        self.connect(self.th,
-                     SIGNAL("cleanupmemory"),
-                     self.cleanupmemory)
+
         debug("Starting app")
         # Forcing HTML5 settings to be enabled.
         """
-        QWebView *webView = new QWebView();
+        QtWebKitWidgets.QWebView *webView = new QtWebKitWidgets.QWebView();
         webView->settings()->setAttribute(QWebSettings::LocalContentCanAccessRemoteUrls, true);
         webView->page()->settings()->setAttribute(QWebSettings::JavascriptEnabled, true);
         webView->page()->settings()->setAttribute(QWebSettings::OfflineWebApplicationCacheEnabled, true);
         webView->page()->setLinkDelegationPolicy(QWebPage::DelegateAllLinks);
         webView->settings()->setUserStyleSheetUrl(QUrl("qrc:/path-your-css-file-in-resource-file.css"));
         """
-        QWebSettings.JavascriptEnabled = 1
-        QWebSettings.PluginsEnabled = 1
-        QWebSettings.OfflineStorageDatabaseEnabled = 1
-        QWebSettings.OfflineWebApplicationCacheEnabled = 1
-        QWebSettings.AcceleratedCompositingEnabled = 1
-        QWebSettings.TiledBackingStoreEnabled = 1
+        QtWebKit.QWebSettings.JavascriptEnabled = 1
+        QtWebKit.QWebSettings.PluginsEnabled = 1
+        QtWebKit.QWebSettings.OfflineStorageDatabaseEnabled = 1
+        QtWebKit.QWebSettings.OfflineWebApplicationCacheEnabled = 1
+        QtWebKit.QWebSettings.AcceleratedCompositingEnabled = 1
+        QtWebKit.QWebSettings.TiledBackingStoreEnabled = 1
         
-class QtBrowser(QThread):
+class QtBrowser(QtCore.QThread):
+    cleanupmemory = QtCore.pyqtSignal()
+    update = QtCore.pyqtSignal('QString')
     def __init__(self, parent = None):
+        super(QtBrowser, self).__init__(parent)
         debug("Starting QtBrowser")
-        QThread.__init__(self, parent = None)
+        self.cleanupmemory.connect(parent.cleanupmemory)
+        self.update.connect(parent.update)
+        debug("Signals connected")
         self.p = parent
 
     def run(self):
@@ -165,21 +168,23 @@ class QtBrowser(QThread):
                 except IOError:
                     debug("Link %s has I/O error" % url)
                     continue
+                except Exception as e:
+                    debug("Error: {}".format(e))
+                    continue
                 if (w.getcode() != 200):
                     debug("Link %s shows error: %d" % (url,w.getcode()))
                     continue
                 debug("Threading updating url to: %s" % url)
                 self.p.url = url
-                self.emit(SIGNAL("update"))
+                self.update.emit(url)
                 self.sleep(TIMER)
             debug("Reached end of the list.  Calling clean up memory()")
-            self.emit(SIGNAL("cleanupmemory"))
-            #self.p.cleanupmemory()
+            self.cleanupmemory.emit()
 
-class QtWatchdog(QThread):
+class QtWatchdog(QtCore.QThread):
     def __init__(self, parent = None):
         debug("Starting QtWatchdog")
-        QThread.__init__(self, parent = None)
+        super(QtWatchdog, self).__init__(parent)
         self.p = parent
 
     def run(self):
@@ -198,7 +203,7 @@ class QtWatchdog(QThread):
 if __name__ == '__main__':
     while True:
         # an extremely dumb keep-alive
-        app = QApplication(sys.argv)
+        app = QtWidgets.QApplication(sys.argv)
         win = raspresenterpy()
         win.show()
         sys.exit(app.exec_())
